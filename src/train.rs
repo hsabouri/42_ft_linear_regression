@@ -53,9 +53,48 @@ impl Training {
         }
     }
 
+    fn scale(&mut self, data: Vec<(f32, f32)>) -> Vec<(f32, f32)> {
+        self.min = {
+            let mut min = data[0].0;
+
+            for val in data.iter() {
+                if val.0 < min { min = val.0 }
+                if val.1 < min { min = val.1 }
+            }
+            min
+        };
+        self.max = {
+            let mut max = data[0].0;
+
+            for val in data.iter() {
+                if val.0 > max { max = val.0 }
+                if val.1 > max { max = val.1 }
+            }
+            max
+        };
+
+        data.iter().map(|val| {
+            if self.min.abs() > self.max.abs() {
+                (val.0 / self.min.abs(), val.1 / self.min.abs())
+            } else {
+                (val.0 / self.max.abs(), val.1 / self.max.abs())
+            }
+        }).collect()
+    }
+    
+    fn unscale(&self) -> Vec<(f32, f32)> {
+        self.data.iter().map(|val| {
+            if self.min.abs() > self.max.abs() {
+                (val.0 * self.min.abs(), val.1 * self.min.abs())
+            } else {
+                (val.0 * self.max.abs(), val.1 * self.max.abs())
+            }
+        }).collect()
+    }
+
+
     fn draw(&self) {
-       let x = [0u32, 1, 2];
-        let y = [3u32, 4, 5];
+        let (x, y): (Vec<f32>, Vec<f32>) = self.unscale().iter().cloned().unzip();
         let mut fg = Figure::new();
 
         fg.axes2d()
