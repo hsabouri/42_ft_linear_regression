@@ -9,6 +9,8 @@ struct Training {
     data: Vec<(f32, f32)>,
     min: f32,
     max: f32,
+    x_max: f32,
+    x_min: f32,
     theta_0: f32,
     theta_1: f32,
     learning_rate: f32,
@@ -35,17 +37,29 @@ impl Training {
             }
             max
         };
+        let x_min = {
+            let mut min = data[0].0;
+
+            for val in data.iter() {
+                if val.0 < min { min = val.0 }
+            }
+            min
+        };
+        let x_max = {
+            let mut max = data[0].0;
+
+            for val in data.iter() {
+                if val.0 > max { max = val.0 }
+            }
+            max
+        };
 
         Training {
-            data: data.iter().map(|val| {
-                if min.abs() > max.abs() {
-                    (val.0 / min.abs(), val.1 / min.abs())
-                } else {
-                    (val.0 / max.abs(), val.1 / max.abs())
-                }
-            }).collect(),
+            data: data,
             min: min,
             max: max,
+            x_min: x_min,
+            x_max: x_max,
             theta_0: 0.0,
             theta_1: 0.0,
             learning_rate: learning_rate,
@@ -53,33 +67,14 @@ impl Training {
         }
     }
 
-    fn scale(&mut self, data: Vec<(f32, f32)>) -> Vec<(f32, f32)> {
-        self.min = {
-            let mut min = data[0].0;
-
-            for val in data.iter() {
-                if val.0 < min { min = val.0 }
-                if val.1 < min { min = val.1 }
-            }
-            min
-        };
-        self.max = {
-            let mut max = data[0].0;
-
-            for val in data.iter() {
-                if val.0 > max { max = val.0 }
-                if val.1 > max { max = val.1 }
-            }
-            max
-        };
-
-        data.iter().map(|val| {
+    fn scale(&mut self) {
+        self.data = self.data.iter().map(|val| {
             if self.min.abs() > self.max.abs() {
                 (val.0 / self.min.abs(), val.1 / self.min.abs())
             } else {
                 (val.0 / self.max.abs(), val.1 / self.max.abs())
             }
-        }).collect()
+        }).collect();
     }
     
     fn unscale(&self) -> Vec<(f32, f32)> {
@@ -92,17 +87,20 @@ impl Training {
         }).collect()
     }
 
-
     fn draw(&self) {
-        let (x, y): (Vec<f32>, Vec<f32>) = self.unscale().iter().cloned().unzip();
         let mut fg = Figure::new();
+        let (x, y): (Vec<f32>, Vec<f32>) = self.unscale().iter().cloned().unzip();
+        let (px, py): (Vec<f32>, Vec<f32>) = (vec![self.x_min, self.x_max],
+                                              vec![self.x_min * self.theta_1 + self.theta_0,
+                                                   self.x_max * self.theta_1 + self.theta_0]);
 
         fg.axes2d()
-        .lines(&x, &y, &[Caption("A line"), Color("black")]);
+        .lines(&x, &y, &[Caption("Dataset"), Color("black")])
+        .lines(&px, &py, &[Caption("Prediction"), Color("red")]);
         fg.show(); 
     }
 
-    fn train(&self) -> (f32, f32) {
+    fn train(&mut self) -> (f32, f32) {
         let alpha = self.learning_rate;
         let m = self.data.len() as f32;
         let (mut theta_0, mut theta_1): (f32, f32) = (1.0, 1.0);
@@ -152,12 +150,12 @@ pub fn sub_training(matches: &clap::ArgMatches) {
                                     .parse::<u32>()
                                     .unwrap_or(100);
     
-    let training = Training::new(data, learning_rate, iterations);
-    println!("{}", training);
-    let (mut t0, mut t1) = training.train();
-    //t1 = Training::remap(t1, 0.0, 1.0, training.min, training.max);
-    t0 *= if training.min.abs() > training.max.abs() { training.min.abs() } else { training.max.abs() };
+    let mut training = Training::new(data, learning_rate, iterations);
+    training.scale();
+    let (t0, t1) = training.train();
+    training.theta_0 = t0 * if training.min.abs() > training.max.abs() { training.min.abs() } else { training.max.abs() };
+    training.theta_1 = t1;
     println!("Thetas");
-    eprintln!("{}\n{}", t0, t1);
+    println!("{}\n{}", training.theta_0, training.theta_1);
     training.draw();
 }

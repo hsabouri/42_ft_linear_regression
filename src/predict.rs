@@ -1,4 +1,5 @@
 use tools::read_csv_dimensions;
+use std::fmt;
 use clap;
 
 struct Predict {
@@ -12,7 +13,7 @@ impl Predict {
         }
     }
 
-    fn predict(&self, dataset: Vec<f32>) -> Vec<f32> {
+    fn predict(&self, dataset: &Vec<f32>) -> Vec<f32> {
         dataset.iter()
         .map(|x| {
             let mut res: f32 = 0.0;
@@ -50,8 +51,10 @@ pub fn sub_predict(matches: &clap::ArgMatches) -> Result<(), &'static str> {
     eprintln!("{:?}", theta);
 
     let predictor = Predict::new(theta);
-    let prediction = predictor.predict(data);
-    println!("Prediction");
-    println!("{:?}", prediction);
+    let prediction = predictor.predict(&data);
+    println!("x,y");
+    for (x, y) in data.iter().zip(prediction.iter()) {
+        println!("{},{}", x, y);
+    }
     Ok(())
 }
